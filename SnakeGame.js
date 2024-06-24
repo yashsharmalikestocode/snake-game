@@ -1,22 +1,88 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const snake = {
-    body: [{ x: 200, y: 200 }],
-    direction: { x: 10, y: 0 },
-    grow: false,
-};
+class Snake {
+    constructor() {
+        this.body = [{ x: 200, y: 200 }];
+        this.direction = { x: 10, y: 0 };
+        this.grow = false;
+    }
 
-const food = {
-    x: Math.floor((Math.random() * 60)) * 10,
-    y: Math.floor((Math.random() * 60)) * 10
-};
+    move() {
+        const head = { x: this.body[0].x + this.direction.x, y: this.body[0].y + this.direction.y };
+        this.body.unshift(head);
 
-let score = 0;
+        if (!this.grow) {
+            this.body.pop();
+        } else {
+            this.grow = false;
+        }
+    }
 
-document.addEventListener("keydown", changeDirection);
+    changeDirection(newDirection) {
+        this.direction = newDirection;
+    }
 
-function changeDirection(event) {
+    extend() {
+        this.grow = true;
+    }
+
+    hasCollidedWithWall() {
+        const head = this.body[0];
+        return head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height;
+    }
+
+    hasCollidedWithSelf() {
+        const head = this.body[0];
+        for (let i = 4; i < this.body.length; i++) {
+            if (head.x === this.body[i].x && head.y === this.body[i].y) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+class Food {
+    constructor() {
+        this.x = Math.floor(Math.random() * 60) * 10;
+        this.y = Math.floor(Math.random() * 60) * 10;
+    }
+
+    respawn() {
+        this.x = Math.floor(Math.random() * 60) * 10;
+        this.y = Math.floor(Math.random() * 60) * 10;
+    }
+
+    draw() {
+        ctx.fillStyle = "red";
+        ctx.fillRect(this.x, this.y, 10, 10);
+        ctx.strokeRect(this.x, this.y, 10, 10);
+    }
+}
+
+class ScoreBoard {
+    constructor() {
+        this.score = 0;
+    }
+
+    increaseScore() {
+        this.score += 10;
+        document.title = `Snake Game by Yash Sharma - Score: ${this.score}`;
+    }
+
+    draw() {
+        ctx.fillStyle = "black";
+        ctx.font = "20px Arial";
+        ctx.fillText(`Score: ${this.score}`, 10, 20);
+    }
+}
+
+const snake = new Snake();
+const food = new Food();
+const scoreboard = new ScoreBoard();
+
+document.addEventListener("keydown", event => {
     const keyPressed = event.key;
     const goingUp = snake.direction.y === -10;
     const goingDown = snake.direction.y === 10;
@@ -24,31 +90,39 @@ function changeDirection(event) {
     const goingLeft = snake.direction.x === -10;
 
     if (keyPressed === 'ArrowUp' && !goingDown) {
-        snake.direction = { x: 0, y: -10 };
+        snake.changeDirection({ x: 0, y: -10 });
     }
     if (keyPressed === 'ArrowDown' && !goingUp) {
-        snake.direction = { x: 0, y: 10 };
+        snake.changeDirection({ x: 0, y: 10 });
     }
     if (keyPressed === 'ArrowLeft' && !goingRight) {
-        snake.direction = { x: -10, y: 0 };
+        snake.changeDirection({ x: -10, y: 0 });
     }
     if (keyPressed === 'ArrowRight' && !goingLeft) {
-        snake.direction = { x: 10, y: 0 };
+        snake.changeDirection({ x: 10, y: 0 });
     }
-}
+});
 
 function main() {
-    if (didGameEnd()) {
+    if (snake.hasCollidedWithWall() || snake.hasCollidedWithSelf()) {
         alert('Game Over');
         document.location.reload();
         return;
     }
 
-    setTimeout(function onTick() {
+    setTimeout(() => {
         clearCanvas();
-        moveSnake();
-        drawFood();
+        snake.move();
+
+        if (snake.body[0].x === food.x && snake.body[0].y === food.y) {
+            food.respawn();
+            snake.extend();
+            scoreboard.increaseScore();
+        }
+
+        food.draw();
         drawSnake();
+        scoreboard.draw();
 
         main();
     }, 100);
@@ -60,66 +134,13 @@ function clearCanvas() {
 }
 
 function drawSnake() {
-    snake.body.forEach(drawSnakePart);
-}
-
-function drawSnakePart(snakePart) {
-    ctx.fillStyle = "lightgreen";
-    ctx.strokestyle = "darkgreen";
-
-    ctx.fillRect(snakePart.x, snakePart.y, 10, 10);
-    ctx.strokeRect(snakePart.x, snakePart.y, 10, 10);
-}
-
-function moveSnake() {
-    const head = { x: snake.body[0].x + snake.direction.x, y: snake.body[0].y + snake.direction.y };
-    snake.body.unshift(head);
-
-    if (head.x === food.x && head.y === food.y) {
-        score += 10;
-        document.title = `Snake Game by Yash Sharma - Score: ${score}`;
-        createFood();
-    } else {
-        snake.body.pop();
-    }
-}
-
-function drawFood() {
-    ctx.fillStyle = "red";
-    ctx.strokestyle = "darkred";
-    ctx.fillRect(food.x, food.y, 10, 10);
-    ctx.strokeRect(food.x, food.y, 10, 10);
-}
-
-function createFood() {
-    food.x = Math.floor((Math.random() * 60)) * 10;
-    food.y = Math.floor((Math.random() * 60)) * 10;
-
-    snake.body.forEach(function isFoodOnSnake(part) {
-        const foodIsOnSnake = part.x === food.x && part.y === food.y;
-        if (foodIsOnSnake) createFood();
+    snake.body.forEach(part => {
+        ctx.fillStyle = "lightgreen";
+        ctx.fillRect(part.x, part.y, 10, 10);
+        ctx.strokeStyle = "darkgreen";
+        ctx.strokeRect(part.x, part.y, 10, 10);
     });
 }
 
-function didGameEnd() {
-    for (let i = 4; i < snake.body.length; i++) {
-        const hasCollided = snake.body[i].x === snake.body[0].x && snake.body[i].y === snake.body[0].y;
-        if (hasCollided) return true;
-    }
-
-    const hitLeftWall = snake.body[0].x < 0;
-    const hitRightWall = snake.body[0].x > canvas.width - 10;
-    const hitTopWall = snake.body[0].y < 0;
-    const hitBottomWall = snake.body[0].y > canvas.height - 10;
-
-    return hitLeftWall || hitRightWall || hitTopWall || hitBottomWall;
-}
-
-function restartGame() {
-    snake.body = [{ x: 200, y: 200 }];
-    snake.direction = { x: 10, y: 0 };
-    score = 0;
-    createFood();
-}
-
 main();
+
